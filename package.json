@@ -1,0 +1,18 @@
+{
+    "name": "yearn-protocol",
+    "devDependencies": {
+        "ethlint": "^1.2.5",
+        "prettier": "^2.1.1",
+        "prettier-plugin-solidity": "^1.0.0-alpha.57"
+    },
+    "scripts": {
+        "lint": "prettier --list-different **/*.sol **/*.json",
+        "lint:check": "prettier --check **/*.sol **/*.json",
+        "lint:fix": "prettier --write **/*.sol **/*.json"
+    },
+    "dependencies": {
+        "@openzeppelin/contracts": "^2.5.0",
+        "@truffle/hdwallet-provider": "^1.1.0",
+        "dotenv": "^8.2.0"
+    }
+}
