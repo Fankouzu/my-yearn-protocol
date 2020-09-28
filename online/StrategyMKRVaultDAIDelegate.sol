@@ -373,25 +373,41 @@ contract StrategyMKRVaultDAIDelegate {
 
     /**
      * @dev 锁定WETH生成DAI
+     * @param wad 当前合约在WETH合约中的余额
+     * @param wadD 生成DAI的数量
      */
     function _lockWETHAndDrawDAI(uint wad, uint wadD) internal {
         // 0x806EF2C349e92C5D787C4cad15ACaBdf1a4644EB UrnHandler
         address urn = ManagerLike(cdp_manager).urns(cdpId);
-        
+
         // GemJoinLike(mcd_join_eth_a).gem().approve(mcd_join_eth_a, wad);
+        // 将vat移动到UrnHandler,销毁当前合约的DAI
         GemJoinLike(mcd_join_eth_a).join(urn, wad);
+        // 对cdp进行跳转，使生成的DAI或抵押品在cdp缸地址中释放
+        // Frob the cdp keeping the generated DAI or collateral freed in the cdp urn address.
         ManagerLike(cdp_manager).frob(cdpId, toInt(wad), _getDrawDart(urn, wadD));
+        // 将一堆DAI从cdp地址传输到dst地址
+        // Transfer wad amount of DAI from the cdp address to a dst address.
         ManagerLike(cdp_manager).move(cdpId, address(this), wadD.mul(1e27));
+        // 
         if (VatLike(vat).can(address(this), address(mcd_join_dai)) == 0) {
+            // VatLike(vat).can[msg.sender][mcd_join_dai] = 1
             VatLike(vat).hope(mcd_join_dai);
         }
+        // 将vat从当前合约移动到mcd_join_dai,为当前合约铸造DAI
         DaiJoinLike(mcd_join_dai).exit(address(this), wadD);
     }
 
+    /**
+     * @dev 锁定WETH生成DAI
+     * @param urn 当前合约在WETH合约中的余额
+     * @param wad 生成DAI的数量
+     */
     function _getDrawDart(address urn, uint wad) internal returns (int dart) {
         uint rate = JugLike(jug).drip(ilk);
         uint _dai = VatLike(vat).dai(urn);
 
+        // 如果增值税余额中已经有足够的DAI，只需退出即可，无需增加更多债务
         // If there was already enough DAI in the vat balance, just exits it without adding more debt
         if (_dai < wad.mul(1e27)) {
             dart = toInt(wad.mul(1e27).sub(_dai).div(rate));
