@@ -1,5 +1,8 @@
 # yEarn Contracts
 
+## yEarn合约结构
+![](./yearn-protocol-v0.06.jpg)
+
 ## 控制器合约
 
 - [合约文档](./docs/Controller.md)
