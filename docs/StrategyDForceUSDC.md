@@ -6,6 +6,8 @@
 
 - 合约地址: https://etherscan.io/address/0xA30d1D98C502378ad61Fe71BcDc3a808CF60b897#code
 
+- USDC 策略的基本原理是将USDC存入dForce铸造DToken,然后将DToken存入dForce: Unipool质押获取到DF Token;在收获时,将DF Token卖出兑换成USDC循环存入到dForce
+
 ## 主要方法
 - 存款方法deposit:
     - 将合约中的USDC发送给dForce: dUSDC Token铸造DToken

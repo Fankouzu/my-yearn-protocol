@@ -23,7 +23,6 @@
         - 从yVaultDAI中取出相应数额的Dai然后存入MakerDao以确保债务安全
     - 扣除提款费5%,发送WETH给控制器合约的奖励地址
     - 将剩余的WETH发送到`保险库`
-
 - 收获方法harvest:
     - 获取全部DAI债务数量
     - 获取在yVaultDAI存款的数量
