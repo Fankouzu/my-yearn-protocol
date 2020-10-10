@@ -3,7 +3,7 @@
 - via 崔棉大师 持续更新中
 
 ## yEarn合约结构
-![](./yearn-protocol-v0.06.jpg)
+![](./yearn-protocol-v0.06.png)
 
 ## 控制器合约
 
