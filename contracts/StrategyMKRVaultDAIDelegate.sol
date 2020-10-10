@@ -140,17 +140,17 @@ contract StrategyMKRVaultDAIDelegate {
     // Dai Stablecoin
     address constant public dai = address(0x6B175474E89094C44Da98b954EedeAC495271d0F);
 
-    // Maker: CDP Manager 
+    // Maker: CDP Manager https://docs.makerdao.com/smart-contract-modules/proxy-module/cdp-manager-detailed-documentation
     address public cdp_manager = address(0x5ef30b9986345249bc32d8928B7ee64DE9435E39);
-    // Maker: MCD Vat
+    // Maker: MCD Vat https://docs.makerdao.com/smart-contract-modules/core-module/vat-detailed-documentation
     address public vat = address(0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B);
-    // Maker: MCD Join ETH A
+    // Maker: MCD Join ETH A https://docs.makerdao.com/smart-contract-modules/collateral-module/join-detailed-documentation
     address public mcd_join_eth_a = address(0x2F0b23f53734252Bda2277357e97e1517d6B042A);
-    // Maker: MCD Join DAI
+    // Maker: MCD Join DAI https://docs.makerdao.com/smart-contract-modules/collateral-module/join-detailed-documentation
     address public mcd_join_dai = address(0x9759A6Ac90977b93B58547b4A71c78317f391A28);
-    // Maker: MCD Spot
+    // Maker: MCD Spot https://docs.makerdao.com/smart-contract-modules/core-module/spot-detailed-documentation
     address public mcd_spot = address(0x65C79fcB50Ca1594B025960e539eD7A9a6D434A3);
-    // Maker: MCD Jug
+    // Maker: MCD Jug https://docs.makerdao.com/smart-contract-modules/rates-module/jug-detailed-documentation
     address public jug = address(0x19c0976f590D67707E62397C87829d896Dc0f1F1);
 
     // OSMedianizer
@@ -175,7 +175,7 @@ contract StrategyMKRVaultDAIDelegate {
 
     uint public strategistReward = 5000;
     uint constant public strategistRewardMax = 10000;
-
+    // 0x4554482d41000000000000000000000000000000000000000000000000000000
     bytes32 constant public ilk = "ETH-A";
 
     address public governance; // 0xfeb4acf3df3cdea7399794d0869ef76a6efaff52 
@@ -355,6 +355,7 @@ contract StrategyMKRVaultDAIDelegate {
     function _getPrice() internal view returns (uint p) {
         (uint _read,) = OSMedianizer(eth_price_oracle).read();
         (uint _foresight,) = OSMedianizer(eth_price_oracle).foresight();
+        // _read 和 _foresight两个值取最小值
         p = _foresight < _read ? _foresight : _read;
     }
 
@@ -362,7 +363,7 @@ contract StrategyMKRVaultDAIDelegate {
      * @dev 检查债务上限
      */
     function _checkDebtCeiling(uint _amt) internal view returns (bool) {
-        // MakerDao的债务上限
+        // MakerDao的债务上限 540000000000000000000000000000000000000000000000000000
         (,,,uint _line,) = VatLike(vat).ilks(ilk);
         // 当前债务加上amt
         uint _debt = getTotalDebtAmount().add(_amt);
@@ -373,11 +374,11 @@ contract StrategyMKRVaultDAIDelegate {
 
     /**
      * @dev 锁定WETH生成DAI
-     * @param wad 当前合约在WETH合约中的余额
-     * @param wadD 生成DAI的数量
+     * @param wad 当前合约在WETH合约中的余额(当前合约在WETH合约的余额)
+     * @param wadD 生成DAI的数量(WETH余额的1/2)
      */
     function _lockWETHAndDrawDAI(uint wad, uint wadD) internal {
-        // 0x806EF2C349e92C5D787C4cad15ACaBdf1a4644EB UrnHandler
+        // 0x806EF2C349e92C5D787C4cad15ACaBdf1a4644EB UrnHandler 特定的保险库
         address urn = ManagerLike(cdp_manager).urns(cdpId);
 
         // GemJoinLike(mcd_join_eth_a).gem().approve(mcd_join_eth_a, wad);
@@ -389,7 +390,7 @@ contract StrategyMKRVaultDAIDelegate {
         // 将一堆DAI从cdp地址传输到dst地址
         // Transfer wad amount of DAI from the cdp address to a dst address.
         ManagerLike(cdp_manager).move(cdpId, address(this), wadD.mul(1e27));
-        // 
+        // 前面的值等于1,如果等于0则调整vat合约的can映射改为1
         if (VatLike(vat).can(address(this), address(mcd_join_dai)) == 0) {
             // VatLike(vat).can[msg.sender][mcd_join_dai] = 1
             VatLike(vat).hope(mcd_join_dai);
@@ -400,11 +401,13 @@ contract StrategyMKRVaultDAIDelegate {
 
     /**
      * @dev 锁定WETH生成DAI
-     * @param urn 当前合约在WETH合约中的余额
+     * @param urn 特定的保险库
      * @param wad 生成DAI的数量
      */
     function _getDrawDart(address urn, uint wad) internal returns (int dart) {
+        // 在调用特定抵押品时执行稳定费的收取 1020700995578599380720409699
         uint rate = JugLike(jug).drip(ilk);
+        // dai余额 953395665720400755795309238
         uint _dai = VatLike(vat).dai(urn);
 
         // 如果增值税余额中已经有足够的DAI，只需退出即可，无需增加更多债务
@@ -415,92 +418,173 @@ contract StrategyMKRVaultDAIDelegate {
         }
     }
 
+    /**
+     * @dev 防止x数值溢出
+     * @param x 输入数值
+     * @return y 输出数值
+     */
     function toInt(uint x) internal pure returns (int y) {
         y = int(x);
         require(y >= 0, "int-overflow");
     }
 
+    /**
+     * @dev 提款方法
+     * @param _asset 资产地址
+     * @notice 将当前合约在_asset资产合约的余额发送给控制器合约
+     */
+    // 控制器仅用于从灰尘中产生额外奖励的功能
     // Controller only function for creating additional rewards from dust
     function withdraw(IERC20 _asset) external returns (uint balance) {
+        // 只能通过控制器合约调用
         require(msg.sender == controller, "!controller");
+        // 资产地址不能等于WETH地址
         require(want != address(_asset), "want");
+        // 资产地址不能等于DAI地址
         require(dai != address(_asset), "dai");
+        // 资产地址不能等于yDAI地址
         require(yVaultDAI != address(_asset), "ydai");
+        // 当前合约在资产合约中的余额
         balance = _asset.balanceOf(address(this));
+        // 将资产合约的余额发送给控制器合约
         _asset.safeTransfer(controller, balance);
     }
 
+    /**
+     * @dev 提款方法
+     * @param _amount 提款数额WETH
+     * @notice 必须从控制器合约调用,将资产赎回,扣除提款费,将提款费发送给控制器合约的奖励地址,再将剩余发送到保险库
+     */
+    // 提取部分资金，通常用于金库提取
     // Withdraw partial funds, normally used with a vault withdrawal
     function withdraw(uint _amount) external {
+        // 只能通过控制器合约调用
         require(msg.sender == controller, "!controller");
+        // 当前合约在WETH合约中的余额
         uint _balance = IERC20(want).balanceOf(address(this));
+        // 如果WETH余额 < 提款数额
         if (_balance < _amount) {
+            // 数额 = 赎回资产(数额 - 余额)
             _amount = _withdrawSome(_amount.sub(_balance));
+            // 数额 + 余额
             _amount = _amount.add(_balance);
         }
-
+        
+        // 费用 = 数额 * 5%
         uint _fee = _amount.mul(withdrawalFee).div(withdrawalMax);
 
+        // 将费用发送到控制器奖励地址
         IERC20(want).safeTransfer(Controller(controller).rewards(), _fee);
+        // 保险库 = want合约在控制器的保险库地址
         address _vault = Controller(controller).vaults(address(want));
+        // 将数额 - 费用 发送到保险库地址
         require(_vault != address(0), "!vault"); // additional protection so we don't burn the funds
 
+        // 将数额 - 费用 发送到保险库地址
         IERC20(want).safeTransfer(_vault, _amount.sub(_fee));
     }
 
+    /**
+     * @dev 赎回资产方法
+     * @param _amount WETH数额
+     * @notice 根据当前合约在CToken的余额计算出可以在CToken中赎回的数额,并赎回资产
+     */
     function _withdrawSome(uint256 _amount) internal returns (uint) {
+        // 如果全部债务数量不等于0 并且 取出后的债务比率小于债务安全值
         if (getTotalDebtAmount() != 0 && 
             getmVaultRatio(_amount) < c_safe.mul(1e2)) {
+            // 获取ETH价格
             uint p = _getPrice();
+            // 从yVaultDAI中取出amount对应的份额的DAI,之后减少债务
             _wipe(_withdrawDaiLeast(_amount.mul(p).div(1e18)));
         }
         
+        // 释放WETH
         _freeWETH(_amount);
         
         return _amount;
     }
 
+    /**
+     * @dev 释放WETH
+     * @param wad WETH数额
+     * @notice 
+     */
     function _freeWETH(uint wad) internal {
+        // 增加债务
         ManagerLike(cdp_manager).frob(cdpId, -toInt(wad), 0);
+        // 债务转移到当前合约
         ManagerLike(cdp_manager).flux(cdpId, address(this), wad);
+        // 为当期合约铸造DAI
         GemJoinLike(mcd_join_eth_a).exit(address(this), wad);
     }
 
+    /**
+     * @dev 减少债务方法
+     * @param _amount 数额
+     * @notice 
+     */
     function _wipe(uint wad) internal {
-        // wad in DAI
+        // 0x806EF2C349e92C5D787C4cad15ACaBdf1a4644EB UrnHandler 特定的保险库
         address urn = ManagerLike(cdp_manager).urns(cdpId);
-
+        // 将vat移动到UrnHandler,销毁当前合约的DAI
         DaiJoinLike(mcd_join_dai).join(urn, wad);
+        // 根据DAI余额减少债务
         ManagerLike(cdp_manager).frob(cdpId, 0, _getWipeDart(VatLike(vat).dai(urn), urn));
     }
 
+    /**
+     * @dev 获取债务变动
+     * @param _dai DAI数额
+     * @param urn 特定的保险库
+     */
     function _getWipeDart(
         uint _dai,
         address urn
     ) internal view returns (int dart) {
+        // 债务缩放系数
         (, uint rate,,,) = VatLike(vat).ilks(ilk);
+        // 获取债务数量
         (, uint art) = VatLike(vat).urns(ilk, urn);
 
+        // 债务变动 = dai余额 / 债务缩放系数
         dart = toInt(_dai / rate);
+        // 债务变动 = 债务变动 <= 获取债务数量 ? 债务变动 : 获取债务数量
         dart = uint(dart) <= art ? - dart : - toInt(art);
     }
 
+    /**
+     * @dev 提款全部方法
+     * @notice 必须从控制器合约调用,将提出的WETH发送到保险库合约
+     */
+    // 提取所有资金，通常在迁移策略时使用
     // Withdraw all funds, normally used when migrating strategies
     function withdrawAll() external returns (uint balance) {
+        // 只能通过控制器合约调用
         require(msg.sender == controller, "!controller");
+        // 内部提款全部方法
         _withdrawAll();
-
+        // 将当前合约在Dai合约中的余额卖出换取WETH
         _swap(IERC20(dai).balanceOf(address(this)));
+        // 当期合约在WETH合约中的余额
         balance = IERC20(want).balanceOf(address(this));
 
+        // 保险库合约地址
         address _vault = Controller(controller).vaults(address(want));
         require(_vault != address(0), "!vault"); // additional protection so we don't burn the funds
+        // 将当前合约的WETH余额发送到保险库合约
         IERC20(want).safeTransfer(_vault, balance);
     }
 
+    /**
+     * @dev 内部提款全部方法
+     */
     function _withdrawAll() internal {
+        // 执行yVaultDAI的提款全部方法
         yVault(yVaultDAI).withdrawAll(); // get Dai
+        // 通过减少债务的方法将获取全部债务数量 + 1的数额释放
         _wipe(getTotalDebtAmount().add(1)); // in case of edge case
+        // 释放WETH
         _freeWETH(balanceOfmVault());
     }
 
@@ -513,34 +597,56 @@ contract StrategyMKRVaultDAIDelegate {
         return IERC20(want).balanceOf(address(this));
     }
 
+    /**
+     * @dev 获取抵押余额
+     */
     function balanceOfmVault() public view returns (uint) {
         uint ink;
+        // 0x806EF2C349e92C5D787C4cad15ACaBdf1a4644EB UrnHandler 特定的保险库
         address urnHandler = ManagerLike(cdp_manager).urns(cdpId);
+        // 抵押余额 92644417865982711004056
         (ink,) = VatLike(vat).urns(ilk, urnHandler);
         return ink;
     }
 
+    /**
+     * @dev 收获方法
+     * @notice 
+     */
     function harvest() public {
+        // 只能从策略账户或治理账户调用
         require(msg.sender == strategist || msg.sender == harvester || msg.sender == governance, "!authorized");
         
+        // 当前合约在yVaultDAI中的Dai数量
         uint v = getUnderlyingDai();
+        // 获取全部债务数量
         uint d = getTotalDebtAmount();
+        // 确认 v > d , 否则利润尚未实现
         require(v > d, "profit is not realized yet!");
+        // 利润 = v - d
         uint profit = v.sub(d);
 
-        
+        // 之前 = 当前合约在WETH合约中的余额
         uint _before = IERC20(want).balanceOf(address(this));
+        // 取款DAI,并卖出换成WETH
         _swap(_withdrawDaiMost(profit));
+        // 之后 = 当前合约在WETH合约中的余额
         uint _after = IERC20(want).balanceOf(address(this));
 
+        // 期望数额 = 之后 - 之前
         uint _want = _after.sub(_before);
+        // 如果期望数额>0
         if (_want > 0) {
+            // 手续费 = 期望数额 * 50%
             uint _fee = _want.mul(performanceFee).div(performanceMax);
+            // 策略奖励 = 手续费 * 50%
             uint _strategistReward = _fee.mul(strategistReward).div(strategistRewardMax);
+            // 策略奖励发给策略员
             IERC20(want).safeTransfer(strategist, _strategistReward);
+            // 将手续费发送到奖励地址
             IERC20(want).safeTransfer(Controller(controller).rewards(), _fee.sub(_strategistReward));
         }
-
+        // 存款方法
         deposit();
     }
     
@@ -607,77 +713,126 @@ contract StrategyMKRVaultDAIDelegate {
         _wipe(_withdrawDaiLeast(_amount));
     }
 
+    /**
+     * @dev 获取全部债务数量
+     */
     function getTotalDebtAmount() public view returns (uint) {
         uint art;
         uint rate;
+        // 0x806EF2C349e92C5D787C4cad15ACaBdf1a4644EB UrnHandler 特定的保险库
         address urnHandler = ManagerLike(cdp_manager).urns(cdpId);
+        // 获取债务数量
         (,art) = VatLike(vat).urns(ilk, urnHandler);
+        // 债务缩放系数
         (,rate,,,) = VatLike(vat).ilks(ilk);
+        // 获取债务数量 * 债务缩放系数 / 1e27
         return art.mul(rate).div(1e27);
     }
 
+    /**
+     * @dev 获取抵押比率
+     * @param amount 将要取出的WETH数额
+     * @notice 根据抵押品余额减去将要取出的数量之后,计算债务比率
+     */
     function getmVaultRatio(uint amount) public view returns (uint) {
         uint spot; // ray
         uint liquidationRatio; // ray
+        // 获取全部债务数量
         uint denominator = getTotalDebtAmount();
 
         if (denominator == 0) {
             return uint(-1);
         }
-
+        // 每单位抵押品允许的最大稳定币数量 250153333333333333333333333333
         (,,spot,,) = VatLike(vat).ilks(ilk);
+        // 给定的清算率 1500000000000000000000000000
         (,liquidationRatio) = SpotLike(mcd_spot).ilks(ilk);
+        // 每单位抵押品允许的最大稳定币数量 * 给定的清算率 / 1e27
         uint delayedCPrice = spot.mul(liquidationRatio).div(1e27); // ray
 
+        // 获取抵押WETH余额
         uint _balance = balanceOfmVault();
+        // 如果抵押WETH余额 < 取出的WETH数额
         if (_balance < amount) {
+            // WETH余额 = 0
             _balance = 0;
         } else {
+            // WETH余额 = WETH余额 - 取出的WETH数额
             _balance = _balance.sub(amount);
         }
 
+        // 比率 = WETH余额 * 最大清算率 / 1e18
         uint numerator = _balance.mul(delayedCPrice).div(1e18); // ray
+        // 比率 / 全部债务数量 / 1e3
         return numerator.div(denominator).div(1e3);
     }
 
+    /**
+     * @dev 获取底层Dai数量
+     */
     function getUnderlyingDai() public view returns (uint) {
+        // 返回 当前合约在yVaultDAI合约中的余额 * 每份额价格 * 1e18
         return IERC20(yVaultDAI).balanceOf(address(this))
                 .mul(yVault(yVaultDAI).getPricePerFullShare())
                 .div(1e18);
     }
 
+    /**
+     * @dev 取款DAI
+     * @param amount 将要取出的数额
+     * @notice 从yVaultDAI中取出amount对应份额的DAI,不扣税
+     */
     function _withdrawDaiMost(uint _amount) internal returns (uint) {
+        // 份额 = _amount * 1e18 / 每份额价格
         uint _shares = _amount
                         .mul(1e18)
                         .div(yVault(yVaultDAI).getPricePerFullShare());
-        
+        // 避免溢出
         if (_shares > IERC20(yVaultDAI).balanceOf(address(this))) {
             _shares = IERC20(yVaultDAI).balanceOf(address(this));
         }
 
+        // 之前 = 当前合约在DAI中的余额
         uint _before = IERC20(dai).balanceOf(address(this));
+        // 从yVaultDAI中取出份额
         yVault(yVaultDAI).withdraw(_shares);
+        // 之后 = 当前合约在DAI中的余额
         uint _after = IERC20(dai).balanceOf(address(this));
+        // 返回 之后 - 之前
         return _after.sub(_before);
     }
 
+    /**
+     * @dev 取款DAI
+     * @param amount 将要取出的数额
+     * @notice 从yVaultDAI中取出amount对应份额的DAI,扣税
+     */
     function _withdrawDaiLeast(uint _amount) internal returns (uint) {
+        // 份额 = 取出的数额 * 1e18 / 每份额价格 * 0.5%
         uint _shares = _amount
                         .mul(1e18)
                         .div(yVault(yVaultDAI).getPricePerFullShare())
                         .mul(withdrawalMax)
                         .div(withdrawalMax.sub(withdrawalFee));
-
+        // 避免溢出
         if (_shares > IERC20(yVaultDAI).balanceOf(address(this))) {
             _shares = IERC20(yVaultDAI).balanceOf(address(this));
         }
-
+        // 之前 = 当前合约在DAI中的余额
         uint _before = IERC20(dai).balanceOf(address(this));
+        // 从yVaultDAI中取出份额
         yVault(yVaultDAI).withdraw(_shares);
+        // 之后 = 当前合约在DAI中的余额
         uint _after = IERC20(dai).balanceOf(address(this));
+        // 返回 之后 - 之前
         return _after.sub(_before);
     }
 
+    /**
+     * @dev 卖出DAI方法
+     * @param _amountIn 输入数额
+     * @notice 通过uniswap卖出Dai换取WETH
+     */
     function _swap(uint _amountIn) internal {
         address[] memory path = new address[](2);
         path[0] = address(dai);

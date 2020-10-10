@@ -205,6 +205,7 @@ contract StrategyDForceUSDC {
     // 提取所有资金，通常在迁移策略时使用
     // Withdraw all funds, normally used when migrating strategies
     function withdrawAll() external returns (uint balance) {
+        // 只能通过控制器合约调用
         require(msg.sender == controller, "!controller");
         // 内部提款全部方法
         _withdrawAll();
