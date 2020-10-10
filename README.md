@@ -1,4 +1,6 @@
-# yEarn Contracts
+# yEarn Finance项目中文注释，中文文档
+
+- via 崔棉大师 持续更新中
 
 ## yEarn合约结构
 ![](./yearn-protocol-v0.06.jpg)
