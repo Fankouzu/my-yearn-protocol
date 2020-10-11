@@ -1,6 +1,6 @@
 # USDC 保险库合约
 
-- [保险库合约](../contracts/yearn:yUSDCVault.sol)
+- [保险库合约](../contracts/yUSDCVault.sol)
 
 - 合约地址: https://etherscan.io/address/0x597aD1e0c13Bfe8025993D9e79C69E1c0233522e#code
 

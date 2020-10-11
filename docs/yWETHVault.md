@@ -1,6 +1,6 @@
 # ETH/WETH 保险库合约
 
-- [保险库合约](../contracts/yearnWrappedEther(yWETH).sol)
+- [保险库合约](../contracts/yWETHVault.sol)
 
 - 合约地址: https://etherscan.io/address/0xe1237aA7f535b0CC33Fd973D66cBf830354D16c7#code
 
