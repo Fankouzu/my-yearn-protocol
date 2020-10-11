@@ -1,18 +1,18 @@
 /**
- *Submitted for verification at Etherscan.io on 2020-08-19
+ *Submitted for verification at Etherscan.io on 2020-08-13
  */
 
 pragma solidity ^0.5.16;
 
 import "./common.sol";
 
-// curve.fi/sbtc LP保险库合约 0x7Ff566E1d69DEfF32a7b244aE7276b9f90e9D0f6
+// DAI保险库合约 0xACd43E627e64355f1861cEC6d3a6688B31a6F952
 contract yVault is ERC20, ERC20Detailed {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
-    // Curve.fi renBTC/wBTC/sBTC
-    IERC20 public token; // 0x075b1bb99792c9E1041bA13afEf80C91a1e70fB3
+    // Dai Stablecoin (DAI)
+    IERC20 public token; // 0x6B175474E89094C44Da98b954EedeAC495271d0F
 
     // 最小值 / 最大值 = 95%
     uint256 public min = 9500;
@@ -25,7 +25,7 @@ contract yVault is ERC20, ERC20Detailed {
 
     /**
      * @dev 构造函数
-     * @param _token 基础资产Curve.fi renBTC/wBTC/sBTC
+     * @param _token 基础资产Dai
      * @param _controller 控制器
      */
     constructor(address _token, address _controller)
@@ -42,7 +42,7 @@ contract yVault is ERC20, ERC20Detailed {
         controller = _controller;
     }
 
-    /// @notice 当前合约在基础资产的余额,加上控制器中当前合约的余额
+    /// @notice 当前合约在DAI的余额,加上控制器中当前合约的余额
     function balance() public view returns (uint256) {
         return
             token.balanceOf(address(this)).add(
@@ -70,14 +70,14 @@ contract yVault is ERC20, ERC20Detailed {
 
     /**
      * @dev 空闲余额
-     * @notice 当前合约在基础资产的余额的95%
+     * @notice 当前合约在DAI的余额的95%
      */
     // 此处的自定义逻辑用于允许借用保险库的数量
     // 设置最低要求，以保持小额取款便宜
     // Custom logic in here for how much the vault allows to be borrowed
     // Sets minimum required on-hand to keep small withdrawals cheap
     function available() public view returns (uint256) {
-        // 当前合约在基础资产的余额 * 95%
+        // 当前合约在DAI的余额 * 95%
         return token.balanceOf(address(this)).mul(min).div(max);
     }
 
@@ -96,7 +96,7 @@ contract yVault is ERC20, ERC20Detailed {
 
     /**
      * @dev 存款全部方法
-     * @notice 将当前用户的全部基础资产发送到存款方法
+     * @notice 将当前用户的全部DAI发送到存款方法
      */
     function depositAll() external {
         deposit(token.balanceOf(msg.sender));
@@ -105,16 +105,16 @@ contract yVault is ERC20, ERC20Detailed {
     /**
      * @dev 存款方法
      * @param _amount 存款数额
-     * @notice 当前合约在基础资产的余额发送到当前合约,并铸造份额币
+     * @notice 当前合约在DAI的余额发送到当前合约,并铸造份额币
      */
     function deposit(uint256 _amount) public {
-        // 池子数量 = 当前合约和控制器合约在基础资产的余额
+        // 池子数量 = 当前合约和控制器合约在DAI的余额
         uint256 _pool = balance();
-        // 之前 = 当前合约在基础资产合约的余额
+        // 之前 = 当前合约在DAI合约的余额
         uint256 _before = token.balanceOf(address(this));
-        // 将调用者的_amount数量的基础资产发送到当前合约
+        // 将调用者的_amount数量的DAI发送到当前合约
         token.safeTransferFrom(msg.sender, address(this), _amount);
-        // 之后 = 当前合约在基础资产合约的余额
+        // 之后 = 当前合约在DAI合约的余额
         uint256 _after = token.balanceOf(address(this));
         // 数额 = 之后 - 之前
         _amount = _after.sub(_before); // Additional check for deflationary tokens
@@ -151,7 +151,7 @@ contract yVault is ERC20, ERC20Detailed {
     function harvest(address reserve, uint256 amount) external {
         // 只能由控制器合约调用
         require(msg.sender == controller, "!controller");
-        // 收获的资产不能是基础资产
+        // 收获的资产不能是DAI
         require(reserve != address(token), "token");
         // 将收获资产发送到控制器合约
         IERC20(reserve).safeTransfer(controller, amount);
@@ -165,22 +165,22 @@ contract yVault is ERC20, ERC20Detailed {
     // 无需重新实施余额以降低费用并加快交换速度
     // No rebalance implementation for lower fees and faster swaps
     function withdraw(uint256 _shares) public {
-        // 当前合约和控制器合约在基础资产的余额 * 份额 / 总量
+        // 当前合约和控制器合约在DAI的余额 * 份额 / 总量
         uint256 r = (balance().mul(_shares)).div(totalSupply());
         // 销毁份额
         _burn(msg.sender, _shares);
 
         // 检查余额
         // Check balance
-        // 当前合约在基础资产的余额
+        // 当前合约在DAI的余额
         uint256 b = token.balanceOf(address(this));
         // 如果余额 < 份额对应的余额
         if (b < r) {
             // 提款数额 = 份额对应的余额 - 余额
             uint256 _withdraw = r.sub(b);
-            // 控制器的提款方法将基础资产提款到当前合约
+            // 控制器的提款方法将DAI提款到当前合约
             Controller(controller).withdraw(address(token), _withdraw);
-            // 之后 = 当前合约的基础资产余额
+            // 之后 = 当前合约的DAI余额
             uint256 _after = token.balanceOf(address(this));
             // 区别 = 之后 - 份额对应的余额
             uint256 _diff = _after.sub(b);
@@ -190,8 +190,7 @@ contract yVault is ERC20, ERC20Detailed {
                 r = b.add(_diff);
             }
         }
-
-        // 将数量为份额对应的余额的基础资产发送到调用者账户
+        // 将数量为份额对应的余额的DAI发送到调用者账户
         token.safeTransfer(msg.sender, r);
     }
 

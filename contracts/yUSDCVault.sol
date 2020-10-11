@@ -44,7 +44,10 @@ contract yVault is ERC20, ERC20Detailed {
 
     /// @notice 当前合约在USDC的余额,加上控制器中当前合约的余额
     function balance() public view returns (uint256) {
-        return token.balanceOf(address(this)).add(Controller(controller).balanceOf(address(token)));
+        return
+            token.balanceOf(address(this)).add(
+                Controller(controller).balanceOf(address(token))
+            );
     }
 
     /// @notice 设置最小值
@@ -83,8 +86,11 @@ contract yVault is ERC20, ERC20Detailed {
      * @notice 将空闲余额发送到控制器,再调用控制器的赚钱方法
      */
     function earn() public {
+        // 空闲余额
         uint256 _bal = available();
+        // 发送到控制器合约
         token.safeTransfer(controller, _bal);
+        // 调用控制器合约的赚钱方法
         Controller(controller).earn(address(token), _bal);
     }
 
@@ -113,7 +119,7 @@ contract yVault is ERC20, ERC20Detailed {
     /**
      * @dev 提款方法
      * @param _shares 份额数量
-     * @notice 
+     * @notice
      */
     // 无需重新实施余额以降低费用并加快交换速度
     // No rebalance implementation for lower fees and faster swaps
