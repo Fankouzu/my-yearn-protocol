@@ -216,7 +216,7 @@ contract StrategyDForceUSDC {
         IERC20(want).safeTransfer(Controller(controller).rewards(), _fee);
         // 保险库 = want合约在控制器的保险库地址
         address _vault = Controller(controller).vaults(address(want));
-        // 将数额 - 费用 发送到保险库地址
+        // 确认保险库地址不为空
         require(_vault != address(0), "!vault"); // additional protection so we don't burn the funds
 
         // 将数额 - 费用 发送到保险库地址
@@ -240,6 +240,7 @@ contract StrategyDForceUSDC {
 
         // 保险库合约地址
         address _vault = Controller(controller).vaults(address(want));
+        // 确认保险库地址不为空
         require(_vault != address(0), "!vault"); // additional protection so we don't burn the funds
         // 将当前合约的USDC余额发送到保险库合约
         IERC20(want).safeTransfer(_vault, balance);

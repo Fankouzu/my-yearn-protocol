@@ -14,6 +14,10 @@
 - 保险库文档: [yWETHVault](./docs/yWETHVault.md)
 - 目前策略文档: [StrategyMKRVaultDAIDelegate](./docs/StrategyMKRVaultDAIDelegate.md)
 
+## DAI
+
+- 保险库文档: [yWETHVault](./docs/yDAIVault.md)
+- 目前策略文档: [StrategyDAICurve](./docs/StrategyDAICurve.md)
 
 ## USDC
 
