@@ -6,7 +6,7 @@
 
 - 合约地址: https://etherscan.io/address/0xAa880345A3147a1fC6889080401C791813ed08Dc#code
 
-- 
+- DAI的策略是将存入的DAI放到iearn DAI (yDAI)机枪池中生成yDAI,将yDAI放到Curve交易所中提供流动性,并生成yCrv;再将yCrv放到yearn Curve.fi yDAI/yUSDC/yUSDT/yTUSD的保险库中
 
 ## 主要方法
 - 存款方法deposit:
