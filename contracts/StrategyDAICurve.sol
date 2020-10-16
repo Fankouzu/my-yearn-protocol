@@ -129,7 +129,7 @@ contract StrategyDAICurve {
 
     /**
      * @dev 存款方法
-     * @notice 
+     * @notice 将DAI存入到yDAI,将yDAI存入到Curve生成yCrv,将yCrv存入到yearn Curve.fi生成yyCrv
      */
     function deposit() public {
         // 当前合约在DAI合约中的余额

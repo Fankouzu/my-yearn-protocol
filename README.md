@@ -21,6 +21,11 @@
 - 保险库文档: [yWETHVault](./docs/yDAIVault.md)
 - 目前策略文档: [StrategyDAICurve](./docs/StrategyDAICurve.md)
 
+### curve.fi/y LP
+
+- 保险库文档: [yWETHVault](./docs/yLPVault.md)
+- 目前策略文档: [StrategyCurveYVoterProxy](./docs/StrategyCurveYVoterProxy.md)
+
 ### USDC
 
 - 保险库文档: [yUSDCVault](./docs/yUSDCVault.md)

@@ -110,6 +110,7 @@ contract StrategyYFIGovernance {
         0xdAC17F958D2ee523a2206206994597C13D831ec7
     );
 
+    // Uniswap V2: Router 2
     address public constant uni = address(
         0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D
     );
