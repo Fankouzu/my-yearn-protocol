@@ -274,7 +274,7 @@ contract StrategyCurveYCRV {
     /**
      * @dev 取款函数(特殊)
      * @param _asset 所需取出的token地址
-     * @notice 只有管理者才能调用此程序,取出所有的_asset token的到管理员地址(_asset不含yCrv、crv、ydai、dai),这个函数写在策略里有点奇怪
+     * @notice 只有管理者才能调用此程序,取出所有的_asset token的到管理员地址(_asset不含yCrv、crv、ydai、dai)
      */
     // Controller only function for creating additional rewards from dust
     function withdraw(IERC20 _asset) external returns (uint balance) {
