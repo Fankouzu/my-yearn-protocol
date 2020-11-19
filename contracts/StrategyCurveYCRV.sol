@@ -207,7 +207,7 @@ contract StrategyCurveYCRV {
     
     /**
      * @dev 构造函数
-     * @param _controller 管理员
+     * @param _controller 控制器
      * @notice 治理地址及策略员地址为msg.sender
      */
     constructor(address _controller) public {
@@ -274,7 +274,7 @@ contract StrategyCurveYCRV {
     /**
      * @dev 取款函数(特殊)
      * @param _asset 所需取出的token地址
-     * @notice 只有控制器才能调用此程序,取出所有的_asset token的到管理员地址(_asset不含yCrv、crv、ydai、dai)
+     * @notice 只有控制器才能调用此程序,取出所有的_asset token的到控制器地址(_asset不含yCrv、crv、ydai、dai)
      */
     // Controller only function for creating additional rewards from dust
     function withdraw(IERC20 _asset) external returns (uint balance) {
@@ -441,7 +441,7 @@ contract StrategyCurveYCRV {
     }
     
     /**
-     * @dev 设置管理员
+     * @dev 设置控制器
      * @notice 只能有老治理地址设定
      */
     function setController(address _controller) external {
