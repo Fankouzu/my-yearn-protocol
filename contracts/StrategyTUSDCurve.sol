@@ -66,9 +66,11 @@ contract StrategyTUSDCurve {
     address public constant y = address(
         0x73a052500105205d34Daf004eAb301916DA8190f
     );
-    // ERC20 curve y池的lp token
-    // name:Curve.fi yDAI/yUSDC/yUSDT/yTUSD
-    // symbol: yDAI+yUSDC+yUSDT+yTUSD
+    /**
+     * ERC20 curve y池的lp token
+     * name: Curve.fi yDAI/yUSDC/yUSDT/yTUSD
+     * symbol: yDAI+yUSDC+yUSDT+yTUSD
+     */
     address public constant ycrv = address(
         0xdF5e0e81Dff6FAF3A7e52BA697820c5e32D806A8
     );
@@ -76,11 +78,12 @@ contract StrategyTUSDCurve {
     address public constant yycrv = address(
         0x5dbcF33D8c2E976c6b560249878e6F1491Bca25c
     );
-    // Curve y pool
+    // Curve y pool, 处理增加删除流动性或swap操作
     address public constant curve = address(
         0x45F783CCE6B7FF23B2ab2D70e416cdb7D6055f51
     );
 
+    // ERC20 DAI
     address public constant dai = address(
         0x6B175474E89094C44Da98b954EedeAC495271d0F
     );
@@ -113,15 +116,28 @@ contract StrategyTUSDCurve {
     address public governance;
     address public controller;
 
+    /**
+     * @dev 构造函数
+     * @param _controller 设置controller
+     */
     constructor(address _controller) public {
+        // 设置管理账号为创建合约的账号
         governance = msg.sender;
+        // 设置Controller
         controller = _controller;
     }
 
+    /**
+     * 返回策略名
+     */
     function getName() external pure returns (string memory) {
         return "StrategyTUSDCurve";
     }
 
+    /**
+     * @dev 存入 TUSD
+     * @notice controller.earn方法中调用，调用前会前把TUSD转账过来
+     */
     function deposit() public {
         // 查询TUSD在本合约的余额
         uint256 _want = IERC20(want).balanceOf(address(this));
@@ -139,7 +155,7 @@ contract StrategyTUSDCurve {
             // 存入ytusd
             ICurveFi(curve).add_liquidity([0, 0, 0, _y], 0);
         }
-        // 把上一步得到的ycrv, 再投资到 yycrv中. 另一个金库
+        // 把上一步得到的ycrv, 再投资到 yycrv(另一个保险库)中
         uint256 _ycrv = IERC20(ycrv).balanceOf(address(this));
         if (_ycrv > 0) {
             IERC20(ycrv).safeApprove(yycrv, 0);
@@ -148,8 +164,12 @@ contract StrategyTUSDCurve {
         }
     }
 
-    // Controller only function for creating additional rewards from dust
+    /**
+     * @dev 提取某资产
+     * @notice 在万一的情况从Controller.inCaseStrategyTokenGetStuck调用提款
+     */
     function withdraw(IERC20 _asset) external returns (uint256 balance) {
+        // Controller only function for creating additional rewards from dust
         // 只有controller可以调用
         require(msg.sender == controller, "!controller");
         require(want != address(_asset), "want");
@@ -160,8 +180,12 @@ contract StrategyTUSDCurve {
         _asset.safeTransfer(controller, balance);
     }
 
-    // Withdraw partial funds, normally used with a vault withdrawal
+    /**
+     * @dev 正常的用户提款方法
+     * @param _amount 提款数量
+     */
     function withdraw(uint256 _amount) external {
+        // Withdraw partial funds, normally used with a vault withdrawal
         require(msg.sender == controller, "!controller");
         uint256 _balance = IERC20(want).balanceOf(address(this));
         if (_balance < _amount) {
@@ -172,7 +196,7 @@ contract StrategyTUSDCurve {
 
         address _vault = Controller(controller).vaults(address(want));
         require(_vault != address(0), "!vault"); // additional protection so we don't burn the funds
-        // 发给金库
+        // 发给保险库
         IERC20(want).safeTransfer(_vault, _amount);
     }
 
@@ -216,7 +240,7 @@ contract StrategyTUSDCurve {
         }
 
         uint256 _before = IERC20(want).balanceOf(address(this));
-        // 通过yToken在金库中取出TUSD
+        // 通过yToken在保险库中取出TUSD
         yERC20(ytusd).withdraw(IERC20(ytusd).balanceOf(address(this)));
         uint256 _after = IERC20(want).balanceOf(address(this));
 
