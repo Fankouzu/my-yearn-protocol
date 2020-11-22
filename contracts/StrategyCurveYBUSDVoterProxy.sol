@@ -21,27 +21,39 @@ import "./common.sol";
  Where possible, strategies must remain as immutable as possible, instead of updating variables, we update the contract by linking it in the controller
  
 */
-
+/**
+* @dev 计算接口
+* @notice 调用存款，余额，取款接口
+*/
 interface Gauge {
     function deposit(uint) external;
     function balanceOf(address) external view returns (uint);
     function withdraw(uint) external;
 }
-
+/**
+* @dev 铸造接口
+* @param 铸造地址
+* @notice 外部调用铸造接口
+*/
 interface Mintr {
     function mint(address) external;
 }
-
+/**
+* @dev uni接口
+* @notice 外部调用uniswap接口，进行swap
+*/
 interface Uni {
     function swapExactTokensForTokens(uint, uint, address[] calldata, address, uint) external;
 }
-
+/**
+ * @notice yERC20接口
+ */
 interface yERC20 {
   function deposit(uint256 _amount) external;
   function withdraw(uint256 _amount) external;
 }
 /**
-使用Curve.fi 接口进行合约操作
+ * @notice 使用Curve.fi 接口进行合约操作,将yDAI+yUSDC+yUSDT+yBUSD稳定币进行操作
  */
 interface ICurveFi {
 
@@ -63,7 +75,7 @@ interface ICurveFi {
   ) external;
 }
 /**
-策略接口
+ * @dev 策略接口
  */
 interface VoterProxy {
     function withdraw(address _gauge, address _token, uint _amount) external returns (uint);
@@ -73,7 +85,8 @@ interface VoterProxy {
     function harvest(address _gauge) external;
 }
 /**
-*curve.fi中的BUSD池子策略
+ * @dev curve.fi中的BUSD池子策略
+ * @notice 将CRV通过路由换成WETH在换成dai，进行策略投资，获取收益
  */
 // curve.fi/busd LP策略合约 地址:0x2EE856843bB65c244F527ad302d6d2853921727e
 contract StrategyCurveYBUSDVoterProxy {
@@ -109,7 +122,8 @@ contract StrategyCurveYBUSDVoterProxy {
     address public strategist;//策略管理地址
     
     /**
-    构造体：合约部署的时候，默认创建一个控制器地址，治理地址和策略管理地址均为发送者地址
+     * @dev 构造体函数
+     * @notice 合约部署的时候，默认创建一个控制器地址，治理地址和策略管理地址均为发送者地址
      */
     constructor(address _controller) public {
         governance = msg.sender;
@@ -117,41 +131,50 @@ contract StrategyCurveYBUSDVoterProxy {
         controller = _controller;
     }
     /**
-    返回函数：返回策略名称
+     * @dev 返回函数
+     * @notice 返回策略名称
      */
     function getName() external pure returns (string memory) {
         return "StrategyCurveYBUSDVoterProxy";
     }
     /**
-    设置策略管理函数：合约部署地址要等于治理地址
+     * @dev 设置策略管理函数
+     * @notice 合约部署地址要等于治理地址
      */
     function setStrategist(address _strategist) external {
         require(msg.sender == governance, "!governance");
         strategist = _strategist;
     }
     /**
-    设置保留CVR的比例：合约部署地址要等于治理地址
+     * @dev 设置保留CVR的比例
+     * @param _keepCRV 保留的CRV
+     * @notice 合约部署地址要等于治理地址
      */
     function setKeepCRV(uint _keepCRV) external {
         require(msg.sender == governance, "!governance");
         keepCRV = _keepCRV;
     }
     /**
-    设置提现费率：合约部署地址要等于治理地址
+     * @dev 设置提现费率
+     * @param _withdrawalFee 提现费率
+     * @notice 合约部署地址要等于治理地址
      */
     function setWithdrawalFee(uint _withdrawalFee) external {
         require(msg.sender == governance, "!governance");
         withdrawalFee = _withdrawalFee;
     }
     /**
-    设置绩效费率：合约部署地址要等于治理地址
+     * @dev 设置绩效费率
+     * @param  _performanceFee 绩效费率
+     * @notice 合约部署地址要等于治理地址
      */
     function setPerformanceFee(uint _performanceFee) external {
         require(msg.sender == governance, "!governance");
         performanceFee = _performanceFee;
     }
     /**
-    存款函数：获取该地址余额，并发送至proxy合约，调用gauge的存款函数
+     * @dev 存款函数
+     * @notice 获取该合约地址在curve中yDAI+yUSDC+yUSDT+yBUSD余额，并发送至proxy合约，调用gauge的存款函数实现盈利
      */
     function deposit() public {
         uint _want = IERC20(want).balanceOf(address(this));
@@ -161,12 +184,15 @@ contract StrategyCurveYBUSDVoterProxy {
         }
     }
     /**
-    提现函数
+     * @dev 提现函数
+     * @param  _asset 合约
+     * @notice 合约部署地址要等于治理地址，控制器才能操作，通常用于提现奖励，到发送者账户
+     * @return balance 提现余额
      */
     // Controller only function for creating additional rewards from dust
     function withdraw(IERC20 _asset) external returns (uint balance) {
         require(msg.sender == controller, "!controller");//控制器调用合约
-        require(want != address(_asset), "want");//判断是否为提现存款币种
+        require(want != address(_asset), "want");//判断是否为提现存款币种（yDAI+yUSDC+yUSDT+yBUSD）
         require(crv != address(_asset), "crv");//判断是否提现CRV
         require(ydai != address(_asset), "ydai");//判断是否提现yDAI
         require(dai != address(_asset), "dai");//判断是否提现dai
@@ -195,7 +221,7 @@ contract StrategyCurveYBUSDVoterProxy {
         IERC20(want).safeTransfer(_vault, _amount.sub(_fee));//扣除费用后将提现数量发送回存款地址
     }
 /**
-提现全部的投资额，停止策略时使用
+ * @notice 提现全部的投资额，停止策略时使用
  */
     // Withdraw all funds, normally used when migrating strategies
     function withdrawAll() external returns (uint balance) {
@@ -210,13 +236,14 @@ contract StrategyCurveYBUSDVoterProxy {
         IERC20(want).safeTransfer(_vault, balance);//将所有的存款发送回原地址
     }
     /**
-    从投资额中全部取回
+     * @notice 从投资额中全部取回
      */
     function _withdrawAll() internal {
         VoterProxy(proxy).withdrawAll(gauge, want);
     }
     /**
-    收获函数：将奖励的CRV换成dai，并使用UNI兑换
+     * @dev 收获函数
+     * @notice 将奖励的CRV换成dai，并使用UNI兑换
      */
     function harvest() public {
         require(msg.sender == strategist || msg.sender == governance, "!authorized");
@@ -229,11 +256,11 @@ contract StrategyCurveYBUSDVoterProxy {
             IERC20(crv).safeTransfer(voter, _keepCRV);//将收获的CRV发送给voter
             _crv = _crv.sub(_keepCRV);//剩下的crv
             
-            IERC20(crv).safeApprove(uni, 0);//使用uni进行兑换
+            IERC20(crv).safeApprove(uni, 0);//使用uni授权进行兑换crv
             IERC20(crv).safeApprove(uni, _crv);
             
         
-            address[] memory path = new address[](3);//设置uni兑换路径
+            address[] memory path = new address[](3);//设置uni兑换路径 crv->weth->dai
             path[0] = crv;
             path[1] = weth;
             path[2] = dai;
@@ -242,59 +269,62 @@ contract StrategyCurveYBUSDVoterProxy {
             //执行uni兑换
         }
         
-        uint _dai = IERC20(dai).balanceOf(address(this));//收获dai
+        uint _dai = IERC20(dai).balanceOf(address(this));//收获dai的余额
         if (_dai > 0) {//判断dai大于0
             IERC20(dai).safeApprove(ydai, 0);//crv兑换成ydai
             IERC20(dai).safeApprove(ydai, _dai);//ydai在兑换成dai
-            yERC20(ydai).deposit(_dai);//将ydai存入池
+            yERC20(ydai).deposit(_dai);//将dai存入curve池中
         }
         uint _ydai = IERC20(ydai).balanceOf(address(this));
         if (_ydai > 0) {//判断ydai大于0
             IERC20(ydai).safeApprove(curve, 0);
             IERC20(ydai).safeApprove(curve, _ydai);
-            ICurveFi(curve).add_liquidity([_ydai,0,0,0],0);//添加流动性到curve，将ydai换成初始币种
+            ICurveFi(curve).add_liquidity([_ydai,0,0,0],0);//添加流动性到curve，获取yadi收益
         }
-        uint _want = IERC20(want).balanceOf(address(this));////收获ydai+ybusd..
+        uint _want = IERC20(want).balanceOf(address(this));////收获busd余额
         if (_want > 0) {
             uint _fee = _want.mul(performanceFee).div(performanceMax);//计算绩效费用
             IERC20(want).safeTransfer(Controller(controller).rewards(), _fee);//控制器合约将奖励发给绩效池
-            deposit();//存入
+            deposit();//继续存入ydai获取收益
         }
     }
     /**
-    提现投资额函数
+     * @dev 从投资中部分提现方法
+     * @param _amount 提现的金额
      */
     function _withdrawSome(uint256 _amount) internal returns (uint) {
         return VoterProxy(proxy).withdraw(gauge, want, _amount);
     }
     /**
-    计算yDAI+yUSDC+yUSDT+yBUSD，余额
+     * @dev 获取本合约中ybusd的余额
      */
     function balanceOfWant() public view returns (uint) {
         return IERC20(want).balanceOf(address(this));
     }
     /**
-    计算yDAI+yUSDC+yUSDT+yBUSD，投资额
+     * @dev 获取本合约中ybusd在proxy的余额
      */
     function balanceOfPool() public view returns (uint) {
         return VoterProxy(proxy).balanceOf(gauge);
     }
     /**
-    pool+want总额
+     * @notice pool+want总额
      */
     function balanceOf() public view returns (uint) {
         return balanceOfWant()
                .add(balanceOfPool());
     }
     /**
-    重新设置治理地址
+     * @dev 重新设置治理地址
+     * @notice 只有治理地址能使用
      */
     function setGovernance(address _governance) external {
         require(msg.sender == governance, "!governance");//合约部署地址调用
         governance = _governance;
     }
     /**
-    重新设置控制器
+     * @dev 重新设置控制器
+     * @notice 只有治理地址能使用
      */
     function setController(address _controller) external {
         require(msg.sender == governance, "!governance");//合约部署地址调用
