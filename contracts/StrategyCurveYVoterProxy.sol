@@ -102,7 +102,7 @@ interface VoterProxy {
 
 /**
  * @title curve.fi/y LP策略合约
- * @author Larry A. Gardner
+ * @author 噷崖
  * @dev  地址:0x594a198048501A304267E63B3bAd0f0638da7628
  */
 contract StrategyCurveYVoterProxy {
@@ -160,9 +160,9 @@ contract StrategyCurveYVoterProxy {
     uint256 public withdrawalFee = 50;//提现手续费
     uint256 public constant withdrawalMax = 10000;//用于计算提现手续费
 
-    address public governance; //治理地址
-    address public controller; //控制器
-    address public strategist; //策略员地址
+    address public governance; //治理地址 0x2D407dDb06311396fE14D4b49da5F0471447d45C
+    address public controller; //控制器 0x9E65Ad11b299CA0Abefc2799dDB6314Ef2d91080
+    address public strategist; //策略员地址 0x2D407dDb06311396fE14D4b49da5F0471447d45C
 
     /**
      * @dev 构造函数
